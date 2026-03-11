@@ -4,14 +4,11 @@ Fetches 4 years of daily OHLCV data for BTC-USD and ETH-USD via yfinance.
 """
 
 import datetime as dt
-
 import pandas as pd
 import yfinance as yf
-import requests
 
 TICKERS = ["BTC-USD", "ETH-USD", "SOL-USD", "AVAX-USD", "LINK-USD", "SUI20947-USD", "XRP-USD"]
 LOOKBACK_YEARS = 4
-
 
 def fetch_data(
     tickers: list[str] = TICKERS,
@@ -28,25 +25,21 @@ def fetch_data(
     end = dt.date.today()
     start = end - dt.timedelta(days=lookback_years * 365)
 
-    # Create a custom session to prevent Streamlit Cloud from being blocked
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
-    })
-
     data: dict[str, pd.DataFrame] = {}
     for ticker in tickers:
+        # Let yfinance handle the session natively
         df = yf.download(
             ticker,
             start=start.isoformat(),
             end=end.isoformat(),
             auto_adjust=True,
-            progress=False,
-            session=session  # Pass the session into the downloader
+            progress=False
         )
+        
         # yfinance may return MultiIndex columns; flatten if needed
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
+            
         df = df[["Open", "High", "Low", "Close", "Volume"]].dropna()
         df.index.name = "Date"
         data[ticker] = df
