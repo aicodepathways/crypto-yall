@@ -22,7 +22,8 @@ def fetch_data(
     dict mapping ticker -> DataFrame with columns
     [Open, High, Low, Close, Volume] and a DatetimeIndex.
     """
-    end = dt.date.today()
+    # HARDCODED: Freeze the end date to the last known good state (March 7)
+    end = dt.date(2026, 3, 7)
     start = end - dt.timedelta(days=lookback_years * 365)
 
     data: dict[str, pd.DataFrame] = {}
