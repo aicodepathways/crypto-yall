@@ -9,15 +9,17 @@ import pandas as pd
 import yfinance as yf
 
 TICKERS = ["BTC-USD", "ETH-USD", "SOL-USD", "AVAX-USD", "LINK-USD", "SUI20947-USD", "XRP-USD"]
-LOOKBACK_YEARS = 4
+ANCHOR_START = dt.date(2022, 3, 1)  # Fixed start date — never shifts
 
 
 def fetch_data(
     tickers: list[str] = TICKERS,
-    lookback_years: int = LOOKBACK_YEARS,
 ) -> dict[str, pd.DataFrame]:
     """
     Download daily OHLCV data for each ticker.
+
+    Uses a fixed start date so adding new days never drops early data,
+    keeping walk-forward fold boundaries and HMM training windows stable.
 
     Returns
     -------
@@ -25,7 +27,7 @@ def fetch_data(
     [Open, High, Low, Close, Volume] and a DatetimeIndex.
     """
     end = dt.date.today()
-    start = end - dt.timedelta(days=lookback_years * 365)
+    start = ANCHOR_START
 
     data: dict[str, pd.DataFrame] = {}
     for ticker in tickers:

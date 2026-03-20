@@ -13,6 +13,7 @@ import numpy as np
 from data_loader import fetch_data
 from indicators import compute_all, butterworth_lowpass
 from hmm_engine import causal_hmm_regimes
+from strategy import generate_signals
 from backtester import walk_forward, get_asset_profile
 
 # ── Page config ──────────────────────────────────────────────────────────────
@@ -181,9 +182,12 @@ def run_pipeline(sym: str):
 
 
 @st.cache_data(show_spinner="Running walk-forward backtest …")
-def run_backtest(sym: str, is_aggressive: bool, lev: float):
+def run_backtest(sym: str, is_aggressive: bool, lev: float,
+                 _df=None, _regimes=None, _bull_probs=None, _bear_probs=None):
     raw = load_data(sym)
-    result = walk_forward(raw, aggressive=is_aggressive, bull_leverage=lev, ticker=sym)
+    precomputed = (_df, _regimes, _bull_probs, _bear_probs) if _df is not None else None
+    result = walk_forward(raw, aggressive=is_aggressive, bull_leverage=lev,
+                          ticker=sym, precomputed=precomputed)
     return result
 
 
@@ -194,12 +198,13 @@ st.title(f"Regime Dashboard  —  {ASSETS[ticker]}")
 
 df, regimes, bull_probs, bear_probs = run_pipeline(ticker)
 
-# Run both modes (standard always at 1x; aggressive uses the slider leverage)
-wf_std = run_backtest(ticker, False, 1.0)
-wf_agg = run_backtest(ticker, True, bull_leverage)
-
-# Primary result is whichever mode is selected
-wf = wf_agg if aggressive else wf_std
+# Generate live signal directly (fast, no walk-forward needed)
+_profile = get_asset_profile(ticker)
+_live_sig = generate_signals(
+    df, regimes, bull_probs=bull_probs, bear_probs=bear_probs,
+    aggressive=aggressive, bull_leverage=min(bull_leverage, _profile["max_bull_leverage"]),
+    allow_short=_profile["allow_short"], atr_mult=_profile["atr_mult"],
+)
 
 
 # ── Live Market Status ───────────────────────────────────────────────────────
@@ -225,15 +230,12 @@ else:
     }
 active_strategy = STRATEGY_MAP.get(latest_regime, "Waiting for signal")
 
-# Determine current signal/action from the last OOS signal
-if not wf.signal_series.empty:
-    last_signal = int(wf.signal_series.iloc[-1])
-else:
-    last_signal = 0
+# Determine current signal/action from live signal
+last_signal = int(_live_sig["Signal"].iloc[-1])
 
 # Previous signal for transition detection
-if len(wf.signal_series) >= 2:
-    prev_signal = int(wf.signal_series.iloc[-2])
+if len(_live_sig) >= 2:
+    prev_signal = int(_live_sig["Signal"].iloc[-2])
 else:
     prev_signal = last_signal
 
@@ -323,6 +325,14 @@ with lc5:
             unsafe_allow_html=True,
         )
 
+
+# ── Walk-Forward Backtests (deferred for faster initial render) ──────────────
+
+wf_std = run_backtest(ticker, False, 1.0,
+                      _df=df, _regimes=regimes, _bull_probs=bull_probs, _bear_probs=bear_probs)
+wf_agg = run_backtest(ticker, True, bull_leverage,
+                      _df=df, _regimes=regimes, _bull_probs=bull_probs, _bear_probs=bear_probs)
+wf = wf_agg if aggressive else wf_std
 
 # ── Metric Cards ─────────────────────────────────────────────────────────────
 
