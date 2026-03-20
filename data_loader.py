@@ -1,6 +1,6 @@
 """
 data_loader.py — Institutional-grade crypto data loader.
-Fetches 4 years of daily OHLCV data for BTC-USD and ETH-USD via yfinance.
+Fetches daily OHLCV data via yfinance.
 """
 
 import datetime as dt
@@ -25,7 +25,8 @@ def fetch_data(
     dict mapping ticker -> DataFrame with columns
     [Open, High, Low, Close, Volume] and a DatetimeIndex.
     """
-    end = dt.date.today()
+    # Use tomorrow to ensure today's data is included regardless of timezone
+    end = dt.date.today() + dt.timedelta(days=1)
     start = ANCHOR_START
 
     data: dict[str, pd.DataFrame] = {}
@@ -38,11 +39,11 @@ def fetch_data(
             auto_adjust=True,
             progress=False
         )
-        
+
         # yfinance may return MultiIndex columns; flatten if needed
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
-            
+
         df = df[["Open", "High", "Low", "Close", "Volume"]].dropna()
         df.index.name = "Date"
         data[ticker] = df
