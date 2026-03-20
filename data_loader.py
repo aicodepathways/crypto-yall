@@ -1,6 +1,6 @@
 """
 data_loader.py — Institutional-grade crypto data loader.
-Fetches daily OHLCV data via yfinance.
+Fetches 4 years of daily OHLCV data for BTC-USD and ETH-USD via yfinance.
 """
 
 import datetime as dt
@@ -8,26 +8,22 @@ import pandas as pd
 import yfinance as yf
 
 TICKERS = ["BTC-USD", "ETH-USD", "SOL-USD", "AVAX-USD", "LINK-USD", "SUI20947-USD", "XRP-USD"]
-ANCHOR_START = dt.date(2022, 3, 1)  # Fixed start date — never shifts
-
+LOOKBACK_YEARS = 4
 
 def fetch_data(
     tickers: list[str] = TICKERS,
+    lookback_years: int = LOOKBACK_YEARS,
 ) -> dict[str, pd.DataFrame]:
     """
     Download daily OHLCV data for each ticker.
-
-    Uses a fixed start date so adding new days never drops early data,
-    keeping walk-forward fold boundaries and HMM training windows stable.
 
     Returns
     -------
     dict mapping ticker -> DataFrame with columns
     [Open, High, Low, Close, Volume] and a DatetimeIndex.
     """
-    # Use tomorrow to ensure today's data is included regardless of timezone
-    end = dt.date.today() + dt.timedelta(days=1)
-    start = ANCHOR_START
+    end = dt.date.today()
+    start = end - dt.timedelta(days=lookback_years * 365)
 
     data: dict[str, pd.DataFrame] = {}
     for ticker in tickers:
@@ -39,11 +35,11 @@ def fetch_data(
             auto_adjust=True,
             progress=False
         )
-
+        
         # yfinance may return MultiIndex columns; flatten if needed
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
-
+            
         df = df[["Open", "High", "Low", "Close", "Volume"]].dropna()
         df.index.name = "Date"
         data[ticker] = df

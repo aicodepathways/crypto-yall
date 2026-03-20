@@ -78,7 +78,7 @@ def causal_hmm_regimes(
     n_components: int = 3,
     min_train: int = MIN_TRAIN_DAYS,
     covariance_type: str = "diag",
-    n_iter: int = 50,
+    n_iter: int = 100,
     random_state: int = 42,
 ) -> Tuple[pd.Series, pd.Series, pd.Series]:
     """
@@ -105,7 +105,7 @@ def causal_hmm_regimes(
     valid_start_idx = df.index.get_loc(valid_start)
     effective_start = max(valid_start_idx + min_train, min_train)
 
-    refit_interval = 42
+    refit_interval = 21
     model = None
     scaler = None
     last_mapping: dict[int, str] = {}
