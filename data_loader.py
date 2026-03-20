@@ -4,6 +4,7 @@ Fetches 4 years of daily OHLCV data for BTC-USD and ETH-USD via yfinance.
 """
 
 import datetime as dt
+import time
 
 import pandas as pd
 import yfinance as yf
@@ -31,17 +32,26 @@ def fetch_data(
 
     data: dict[str, pd.DataFrame] = {}
     for ticker in tickers:
-        df = yf.download(
-            ticker,
-            start=start.isoformat(),
-            end=end.isoformat(),
-            auto_adjust=True,
-            progress=False,
-        )
-        # yfinance may return MultiIndex columns; flatten if needed
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        df = df[["Open", "High", "Low", "Close", "Volume"]].dropna()
+        # Retry with backoff if Yahoo rate-limits us
+        for attempt in range(3):
+            df = yf.download(
+                ticker,
+                start=start.isoformat(),
+                end=end.isoformat(),
+                auto_adjust=True,
+                progress=False,
+            )
+            # yfinance may return MultiIndex columns; flatten if needed
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+            df = df[["Open", "High", "Low", "Close", "Volume"]].dropna()
+            if not df.empty:
+                break
+            time.sleep(2 ** attempt)  # 1s, 2s, 4s
+
+        if df.empty:
+            raise RuntimeError(f"No data returned for {ticker} after 3 attempts (likely rate-limited)")
+
         df.index.name = "Date"
         data[ticker] = df
 
