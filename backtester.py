@@ -176,6 +176,7 @@ def walk_forward(
     aggressive: bool = False,
     bull_leverage: float = 3.0,
     ticker: str = "",
+    precomputed: tuple = None,
 ) -> WFResult:
     """
     Run walk-forward optimisation on *df_raw* (raw OHLCV DataFrame).
@@ -188,6 +189,8 @@ def walk_forward(
         Maximum leverage multiplier during Bull regime (aggressive only).
     ticker : str
         Ticker symbol — used to look up asset-class profile.
+    precomputed : tuple or None
+        Optional (df, regimes, bull_probs, bear_probs) to skip recomputation.
 
     Returns a WFResult with OOS-only performance metrics.
     """
@@ -200,11 +203,13 @@ def walk_forward(
     allow_short = profile["allow_short"]
     atr_mult = profile["atr_mult"]
 
-    # Pre-compute indicators on the full dataset (indicators are causal)
-    df = compute_all(df_raw)
-
-    # Pre-compute causal HMM regimes + bull/bear probabilities
-    regimes, bull_probs, bear_probs = causal_hmm_regimes(df)
+    if precomputed is not None:
+        df, regimes, bull_probs, bear_probs = precomputed
+    else:
+        # Pre-compute indicators on the full dataset (indicators are causal)
+        df = compute_all(df_raw)
+        # Pre-compute causal HMM regimes + bull/bear probabilities
+        regimes, bull_probs, bear_probs = causal_hmm_regimes(df)
 
     n = len(df)
     step = oos_days
