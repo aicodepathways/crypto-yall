@@ -100,7 +100,7 @@ st.markdown(
 
 # ── Sidebar ──────────────────────────────────────────────────────────────────
 
-st.sidebar.image("assets/cryptoyall-main-3d-inverted-rgb-775px@72ppi.png", use_container_width=True)
+st.sidebar.image("assets/cryptoyall-main-3d-inverted-rgb-775px@72ppi.png", width="stretch")
 st.sidebar.markdown("")  # spacer
 ASSETS = {
     "BTC-USD": "Bitcoin (BTC)",
@@ -486,7 +486,7 @@ fig.update_layout(
     font=dict(family="JetBrains Mono, monospace", size=12),
 )
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 
 
 # ── OOS Equity Curve — overlaid comparison ──────────────────────────────────
@@ -538,7 +538,7 @@ if has_std or has_agg:
         legend=dict(orientation="h", y=1.05, x=0.5, xanchor="center"),
         font=dict(family="JetBrains Mono, monospace", size=12),
     )
-    st.plotly_chart(eq_fig, use_container_width=True)
+    st.plotly_chart(eq_fig, width="stretch")
 else:
     st.info("Not enough data for walk-forward analysis.")
 
@@ -646,7 +646,7 @@ if not regimes.dropna().empty:
         font=dict(family="JetBrains Mono, monospace", size=12),
         showlegend=False,
     )
-    st.plotly_chart(pie_fig, use_container_width=True)
+    st.plotly_chart(pie_fig, width="stretch")
 
 
 # ── Walk-Forward Fold Details ────────────────────────────────────────────────
@@ -657,7 +657,7 @@ with st.expander(f"Walk-Forward Fold Parameters ({mode_label})"):
             pd.DataFrame(wf.best_params_per_fold).rename(
                 index=lambda i: f"Fold {i + 1}"
             ),
-            use_container_width=True,
+            width="stretch",
         )
     else:
         st.write("No folds completed.")

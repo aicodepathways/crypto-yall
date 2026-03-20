@@ -7,7 +7,6 @@ import datetime as dt
 
 import pandas as pd
 import yfinance as yf
-import requests
 
 TICKERS = ["BTC-USD", "ETH-USD", "SOL-USD", "AVAX-USD", "LINK-USD", "SUI20947-USD", "XRP-USD"]
 LOOKBACK_YEARS = 4
@@ -28,12 +27,6 @@ def fetch_data(
     end = dt.date.today()
     start = end - dt.timedelta(days=lookback_years * 365)
 
-    # Create a custom session to prevent Streamlit Cloud from being blocked
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
-    })
-
     data: dict[str, pd.DataFrame] = {}
     for ticker in tickers:
         df = yf.download(
@@ -42,7 +35,6 @@ def fetch_data(
             end=end.isoformat(),
             auto_adjust=True,
             progress=False,
-            session=session  # Pass the session into the downloader
         )
         # yfinance may return MultiIndex columns; flatten if needed
         if isinstance(df.columns, pd.MultiIndex):
