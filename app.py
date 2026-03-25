@@ -167,13 +167,13 @@ st.sidebar.markdown(
 
 # ── Data pipeline (cached) ──────────────────────────────────────────────────
 
-@st.cache_data(show_spinner="Fetching market data …")
+@st.cache_data(show_spinner="Fetching market data …", ttl="24h")
 def load_data(sym: str):
     data = fetch_data(tickers=[sym])
     return data[sym]
 
 
-@st.cache_data(show_spinner="Computing indicators & HMM regimes …")
+@st.cache_data(show_spinner="Computing indicators & HMM regimes …", ttl="24h")
 def run_pipeline(sym: str):
     raw = load_data(sym)
     df = compute_all(raw)
@@ -181,7 +181,7 @@ def run_pipeline(sym: str):
     return df, regimes, bull_probs, bear_probs
 
 
-@st.cache_data(show_spinner="Running walk-forward backtest …")
+@st.cache_data(show_spinner="Running walk-forward backtest …", ttl="24h")
 def run_backtest(sym: str, is_aggressive: bool, lev: float,
                  _df=None, _regimes=None, _bull_probs=None, _bear_probs=None):
     raw = load_data(sym)
