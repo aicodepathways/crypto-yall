@@ -15,6 +15,7 @@ from indicators import compute_all, butterworth_lowpass
 from hmm_engine import causal_hmm_regimes
 from strategy import generate_signals
 from backtester import walk_forward, get_asset_profile
+from signal_utils import signal_to_action
 
 # ── Page config ──────────────────────────────────────────────────────────────
 
@@ -239,30 +240,7 @@ if len(_live_sig) >= 2:
 else:
     prev_signal = last_signal
 
-if last_signal == -1 and prev_signal != -1:
-    action_text = "ENTER SHORT"
-    action_cls = "signal-short"
-elif last_signal == -1:
-    action_text = "HOLD SHORT"
-    action_cls = "signal-short"
-elif last_signal == 0 and prev_signal == -1:
-    action_text = "COVER SHORT"
-    action_cls = "signal-buy"
-elif latest_regime == "Bear" and last_signal == 0:
-    action_text = "LIQUIDATE TO CASH"
-    action_cls = "signal-liq"
-elif last_signal == 1 and prev_signal == 0:
-    action_text = "BUY"
-    action_cls = "signal-buy"
-elif last_signal == 1:
-    action_text = "HOLD LONG"
-    action_cls = "signal-hold"
-elif last_signal == 0 and prev_signal == 1:
-    action_text = "SELL / EXIT"
-    action_cls = "signal-liq"
-else:
-    action_text = "FLAT"
-    action_cls = "signal-flat"
+action_text, action_cls = signal_to_action(last_signal, prev_signal, latest_regime)
 
 # Bull / Bear probability for display
 latest_bp = float(bull_probs.iloc[-1]) if not pd.isna(bull_probs.iloc[-1]) else 0.0
