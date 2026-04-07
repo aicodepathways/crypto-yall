@@ -213,10 +213,12 @@ def send_email(transitions: list[dict]):
 
 def send_telegram(transitions: list[dict]):
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
-    if not token or not chat_id:
+    chat_ids_raw = os.environ.get("TELEGRAM_CHAT_ID")
+    if not token or not chat_ids_raw:
         print("Telegram not configured, skipping")
         return
+
+    chat_ids = [c.strip() for c in chat_ids_raw.split(",") if c.strip()]
 
     lines = ["*Crypto Y'all Signal Alert*", ""]
     for t in transitions:
@@ -229,15 +231,16 @@ def send_telegram(transitions: list[dict]):
     lines.append(f"_{dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}_")
 
     text = "\n".join(lines)
-    resp = requests.post(
-        f"https://api.telegram.org/bot{token}/sendMessage",
-        json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"},
-        timeout=15,
-    )
-    if resp.status_code == 200:
-        print(f"Telegram message sent to chat {chat_id}")
-    else:
-        print(f"Telegram error: {resp.status_code} {resp.text}")
+    for chat_id in chat_ids:
+        resp = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"},
+            timeout=15,
+        )
+        if resp.status_code == 200:
+            print(f"Telegram message sent to chat {chat_id}")
+        else:
+            print(f"Telegram error for {chat_id}: {resp.status_code} {resp.text}")
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
