@@ -7,3 +7,5 @@ pandas>=2.1
 numpy>=1.26
 scikit-learn>=1.4
 requests>=2.31
+hyperliquid-python-sdk>=0.9.0
+eth-account>=0.13

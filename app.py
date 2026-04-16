@@ -16,6 +16,13 @@ from hmm_engine import causal_hmm_regimes
 from strategy import generate_signals
 from backtester import walk_forward, get_asset_profile
 from signal_utils import signal_to_action
+from trading_state import load_trading_state
+
+# Hyperliquid symbol map for the live trading panel
+HL_TICKER_MAP = {
+    "BTC-USD": "BTC", "ETH-USD": "ETH", "SOL-USD": "SOL",
+    "AVAX-USD": "AVAX", "LINK-USD": "LINK", "SUI20947-USD": "SUI", "XRP-USD": "XRP",
+}
 
 # ── Page config ──────────────────────────────────────────────────────────────
 
@@ -302,6 +309,101 @@ with lc5:
             </div>""",
             unsafe_allow_html=True,
         )
+
+
+# ── Live Trading (Hyperliquid) ──────────────────────────────────────────────
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _cached_trading_state():
+    return load_trading_state()
+
+_trading = _cached_trading_state()
+
+if _trading:
+    st.markdown("---")
+    st.markdown("### Live Trading — Hyperliquid")
+
+    _equity = _trading.get("last_equity", 0.0)
+    _last_run = _trading.get("last_run", "—")
+    _halted = _trading.get("halted_today")
+    _today = pd.Timestamp.utcnow().strftime("%Y-%m-%d")
+    _is_halted_today = _halted == _today
+    _positions = _trading.get("open_positions", {}) or {}
+    _history = _trading.get("history", []) or []
+
+    _status_color = "#f85149" if _is_halted_today else "#3fb950"
+    _status_label = "PAUSED (Daily DD)" if _is_halted_today else "ACTIVE"
+
+    tc1, tc2, tc3, tc4 = st.columns(4)
+    with tc1:
+        st.markdown(
+            f"""<div class="live-card">
+                <div class="live-label">Bot Status</div>
+                <div class="live-value" style="color:{_status_color};">{_status_label}</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+    with tc2:
+        st.markdown(
+            f"""<div class="live-card">
+                <div class="live-label">Account Equity</div>
+                <div class="live-value neu">${_equity:,.2f}</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+    with tc3:
+        st.markdown(
+            f"""<div class="live-card">
+                <div class="live-label">Open Positions</div>
+                <div class="live-value neu">{len(_positions)}</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+    with tc4:
+        st.markdown(
+            f"""<div class="live-card">
+                <div class="live-label">Last Run</div>
+                <div class="live-value" style="font-size:0.95rem;color:#c9d1d9;">{_last_run[:16].replace('T',' ') if _last_run != '—' else '—'}</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+    # Open positions table
+    if _positions:
+        st.markdown("#### Open Positions")
+        pos_rows = []
+        for coin, p in _positions.items():
+            size = p.get("size", 0)
+            side = "LONG" if size > 0 else "SHORT"
+            pos_rows.append({
+                "Asset": coin,
+                "Side": side,
+                "Size": abs(size),
+                "Entry Price": f"${p.get('entry_px', 0):,.2f}",
+                "Unrealized PnL": f"${p.get('unrealized_pnl', 0):,.2f}",
+            })
+        st.dataframe(pd.DataFrame(pos_rows), width="stretch", hide_index=True)
+    else:
+        st.info("No open positions.")
+
+    # Recent trades
+    if _history:
+        st.markdown("#### Recent Trades")
+        hist_df = pd.DataFrame(_history[-20:][::-1])
+        # Friendly columns
+        keep = [c for c in ["timestamp", "ticker", "action", "status", "fill_size", "fill_price", "reason"] if c in hist_df.columns]
+        hist_df = hist_df[keep]
+        if "timestamp" in hist_df.columns:
+            hist_df["timestamp"] = hist_df["timestamp"].str[:16].str.replace("T", " ")
+        if "fill_price" in hist_df.columns:
+            hist_df["fill_price"] = hist_df["fill_price"].apply(
+                lambda x: f"${x:,.2f}" if pd.notna(x) and x else "—"
+            )
+        st.dataframe(hist_df, width="stretch", hide_index=True)
+
+    if _is_halted_today:
+        reason = _trading.get("halt_reason", "Daily drawdown limit reached")
+        st.warning(f"Trading paused today: {reason}. Will resume tomorrow.")
 
 
 # ── Walk-Forward Backtests (deferred for faster initial render) ──────────────
