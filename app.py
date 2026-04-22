@@ -16,7 +16,7 @@ from hmm_engine import causal_hmm_regimes
 from strategy import generate_signals
 from backtester import walk_forward, get_asset_profile
 from signal_utils import signal_to_action
-from trading_state import load_trading_state
+from trading_state import load_trading_state, load_intraday_state
 
 # Hyperliquid symbol map for the live trading panel
 HL_TICKER_MAP = {
@@ -404,6 +404,109 @@ if _trading:
     if _is_halted_today:
         reason = _trading.get("halt_reason", "Daily drawdown limit reached")
         st.warning(f"Trading paused today: {reason}. Will resume tomorrow.")
+
+
+# ── Intraday Trading (Hyperliquid, 1h 2-pole oscillator) ────────────────────
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _cached_intraday_state():
+    return load_intraday_state()
+
+_intraday = _cached_intraday_state()
+
+if _intraday:
+    st.markdown("---")
+    st.markdown("### Intraday Trading (1h) — Hyperliquid")
+    st.caption("Pure 2-pole oscillator, no regime filter. Higher frequency.")
+
+    _id_equity = _intraday.get("last_equity", 0.0)
+    _id_last_run = _intraday.get("last_run", "—")
+    _id_halted = _intraday.get("halted_today")
+    _id_today = pd.Timestamp.utcnow().strftime("%Y-%m-%d")
+    _id_is_halted = _id_halted == _id_today
+    _id_positions = _intraday.get("open_positions", {}) or {}
+    _id_history = _intraday.get("history", []) or []
+    _id_signals = _intraday.get("last_signals", {}) or {}
+
+    _id_status_color = "#f85149" if _id_is_halted else "#3fb950"
+    _id_status_label = "PAUSED (Daily DD)" if _id_is_halted else "ACTIVE"
+
+    ic1, ic2, ic3, ic4 = st.columns(4)
+    with ic1:
+        st.markdown(
+            f"""<div class="live-card">
+                <div class="live-label">Intraday Status</div>
+                <div class="live-value" style="color:{_id_status_color};">{_id_status_label}</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+    with ic2:
+        st.markdown(
+            f"""<div class="live-card">
+                <div class="live-label">Account Equity</div>
+                <div class="live-value neu">${_id_equity:,.2f}</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+    with ic3:
+        st.markdown(
+            f"""<div class="live-card">
+                <div class="live-label">Open Positions</div>
+                <div class="live-value neu">{len(_id_positions)}</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+    with ic4:
+        st.markdown(
+            f"""<div class="live-card">
+                <div class="live-label">Last Run</div>
+                <div class="live-value" style="font-size:0.95rem;color:#c9d1d9;">{_id_last_run[:16].replace('T',' ') if _id_last_run != '—' else '—'}</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+    if _id_positions:
+        st.markdown("#### Open Intraday Positions")
+        rows = []
+        for coin, p in _id_positions.items():
+            size = p.get("size", 0)
+            rows.append({
+                "Asset": coin,
+                "Side": "LONG" if size > 0 else "SHORT",
+                "Size": abs(size),
+                "Entry Price": f"${p.get('entry_px', 0):,.2f}",
+                "Unrealized PnL": f"${p.get('unrealized_pnl', 0):,.2f}",
+            })
+        st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+
+    if _id_signals:
+        st.markdown("#### Current Intraday Signals")
+        sig_rows = []
+        for tkr, info in _id_signals.items():
+            sig_rows.append({
+                "Asset": tkr.replace("-USD", "").replace("20947", ""),
+                "Action": info.get("action", "").replace("_", " ").upper(),
+                "Price": f"${info.get('price', 0):,.2f}",
+                "Oscillator": f"{info.get('osc', 0):+.3f}",
+            })
+        st.dataframe(pd.DataFrame(sig_rows), width="stretch", hide_index=True)
+
+    if _id_history:
+        st.markdown("#### Recent Intraday Trades")
+        hist_df = pd.DataFrame(_id_history[-20:][::-1])
+        keep = [c for c in ["timestamp", "ticker", "action", "status", "fill_size", "fill_price", "reason"] if c in hist_df.columns]
+        hist_df = hist_df[keep]
+        if "timestamp" in hist_df.columns:
+            hist_df["timestamp"] = hist_df["timestamp"].str[:16].str.replace("T", " ")
+        if "fill_price" in hist_df.columns:
+            hist_df["fill_price"] = hist_df["fill_price"].apply(
+                lambda x: f"${x:,.2f}" if pd.notna(x) and x else "—"
+            )
+        st.dataframe(hist_df, width="stretch", hide_index=True)
+
+    if _id_is_halted:
+        reason = _intraday.get("halt_reason", "Daily drawdown limit reached")
+        st.warning(f"Intraday trading paused today: {reason}. Will resume tomorrow.")
 
 
 # ── Walk-Forward Backtests (deferred for faster initial render) ──────────────
