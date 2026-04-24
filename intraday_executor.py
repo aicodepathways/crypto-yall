@@ -268,8 +268,12 @@ def main():
     if skipped:
         print(f"Skipping unavailable assets on this env: {skipped}")
 
-    trades = decide_trades(signals, open_positions, max_positions)
-    print(f"Decided on {len(trades)} intraday trade(s)")
+    # Ownership tracking: only manage positions this bot opened
+    owned_coins = set(state.get("owned_coins", []))
+    managed_positions = {c: p for c, p in open_positions.items() if c in owned_coins}
+
+    trades = decide_trades(signals, managed_positions, max_positions)
+    print(f"Decided on {len(trades)} intraday trade(s) (own {len(owned_coins)} position(s))")
 
     results = []
     for trade in trades:
@@ -277,6 +281,13 @@ def main():
         result = execute_trade(info, exchange, trade, capital, leverage)
         results.append(result)
         print(f"  {result['ticker']} {result['action']}: {result.get('status')}")
+
+        if result.get("status") == "filled":
+            coin = result["hl_coin"]
+            if result["action"] == "close":
+                owned_coins.discard(coin)
+            else:
+                owned_coins.add(coin)
 
     history = state.get("history", [])
     for r in results:
@@ -287,7 +298,9 @@ def main():
     state["history"] = history[-500:]
     state["last_equity"] = equity
     state["last_run"] = dt.datetime.now(dt.UTC).isoformat()
-    state["open_positions"] = get_open_positions(info, address)
+    state["owned_coins"] = sorted(owned_coins)
+    latest = get_open_positions(info, address)
+    state["open_positions"] = {c: p for c, p in latest.items() if c in owned_coins}
     state["last_signals"] = signals
     save_state(state)
 

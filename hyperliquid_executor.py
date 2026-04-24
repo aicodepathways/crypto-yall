@@ -558,8 +558,13 @@ def main():
     if skipped:
         print(f"Skipping unavailable assets on this env: {skipped}")
 
-    trades = decide_trades(signals, open_positions, max_positions)
-    print(f"Decided on {len(trades)} trade(s)")
+    # Ownership tracking: only manage positions this bot opened.
+    # owned_coins is the set of coin symbols this bot currently holds.
+    owned_coins = set(state.get("owned_coins", []))
+    managed_positions = {c: p for c, p in open_positions.items() if c in owned_coins}
+
+    trades = decide_trades(signals, managed_positions, max_positions)
+    print(f"Decided on {len(trades)} trade(s) (own {len(owned_coins)} position(s))")
 
     results = []
     for trade in trades:
@@ -569,6 +574,14 @@ def main():
         results.append(result)
         print(f"  {result['ticker']} {result['action']}: {result.get('status')} "
               f"{result.get('fill_size', '')} @ {result.get('fill_price', '')}")
+
+        # Update ownership on successful fills
+        if result.get("status") == "filled":
+            coin = result["hl_coin"]
+            if result["action"] == "close":
+                owned_coins.discard(coin)
+            else:
+                owned_coins.add(coin)
 
     # Append to trade history
     history = state.get("history", [])
@@ -580,9 +593,10 @@ def main():
     state["history"] = history[-500:]  # keep last 500 trades
     state["last_equity"] = equity
     state["last_run"] = dt.datetime.utcnow().isoformat() + "Z"
-    state["open_positions"] = {
-        c: p for c, p in get_open_positions(info, address).items()
-    }
+    state["owned_coins"] = sorted(owned_coins)
+    # Show only our positions on the dashboard
+    latest_positions = get_open_positions(info, address)
+    state["open_positions"] = {c: p for c, p in latest_positions.items() if c in owned_coins}
 
     save_trading_state(state)
 
