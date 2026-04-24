@@ -151,18 +151,23 @@ def decide_trades(signals: dict, open_positions: dict, max_positions: int) -> li
         hl_coin = HL_SYMBOL_MAP[ticker]
         if hl_coin in remaining:
             continue
-        if info["action"] == "buy":
+        action = info["action"]
+        # Open on fresh entry (buy/enter_short) OR sync when strategy
+        # says we should be holding but we have no position.
+        if action in ("buy", "hold_long"):
+            reason = "buy signal" if action == "buy" else "sync to hold_long"
             candidates.append({
                 "ticker": ticker, "hl_coin": hl_coin,
                 "action": "open_long", "side": "long",
-                "reason": "buy signal",
+                "reason": reason,
                 "priority": abs(info["osc"]),
             })
-        elif info["action"] == "enter_short":
+        elif action in ("enter_short", "hold_short"):
+            reason = "enter_short signal" if action == "enter_short" else "sync to hold_short"
             candidates.append({
                 "ticker": ticker, "hl_coin": hl_coin,
                 "action": "open_short", "side": "short",
-                "reason": "enter_short signal",
+                "reason": reason,
                 "priority": abs(info["osc"]),
             })
 

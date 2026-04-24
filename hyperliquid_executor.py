@@ -266,22 +266,26 @@ def decide_trades(signals: dict, open_positions: dict, max_positions: int) -> li
         if existing:
             continue
 
-        if action_key == "buy":
+        # Open on fresh entry (buy/enter_short) OR sync when strategy
+        # says we should be holding long/short but we have no position.
+        if action_key in ("buy", "hold_long"):
+            reason = "BUY signal" if action_key == "buy" else "Sync to hold_long (strategy already in position)"
             open_candidates.append({
                 "ticker": ticker,
                 "hl_coin": hl_coin,
                 "action": "open_long",
                 "side": "long",
-                "reason": "BUY signal",
+                "reason": reason,
                 "confidence": info["bull_conf"],
             })
-        elif action_key == "enter_short":
+        elif action_key in ("enter_short", "hold_short"):
+            reason = "ENTER SHORT signal" if action_key == "enter_short" else "Sync to hold_short (strategy already in position)"
             open_candidates.append({
                 "ticker": ticker,
                 "hl_coin": hl_coin,
                 "action": "open_short",
                 "side": "short",
-                "reason": "ENTER SHORT signal",
+                "reason": reason,
                 "confidence": info["bear_conf"],
             })
 
