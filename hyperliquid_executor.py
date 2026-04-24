@@ -148,6 +148,11 @@ def get_mid_price(info, coin: str) -> float:
     return float(info.all_mids()[coin])
 
 
+def coin_is_listed(info, coin: str) -> bool:
+    """Check if a coin is available for trading on the current environment."""
+    return coin in info.all_mids()
+
+
 # ── Signal Computation (reuse notifier logic) ───────────────────────────────
 
 def compute_all_signals() -> dict:
@@ -545,6 +550,13 @@ def main():
     open_positions = get_open_positions(info, address)
     capital = float(os.environ.get("SEGREGATED_CAPITAL", "10000"))
     max_positions = int(os.environ.get("MAX_POSITIONS", "4"))
+
+    # Filter out assets not listed on this Hyperliquid environment
+    available = set(info.all_mids().keys())
+    signals = {t: s for t, s in signals.items() if HL_TICKER_MAP[t] in available}
+    skipped = [t for t in ASSETS if t not in signals]
+    if skipped:
+        print(f"Skipping unavailable assets on this env: {skipped}")
 
     trades = decide_trades(signals, open_positions, max_positions)
     print(f"Decided on {len(trades)} trade(s)")

@@ -261,6 +261,13 @@ def main():
     capital = float(os.environ.get("INTRADAY_CAPITAL", "5000"))
     max_positions = int(os.environ.get("INTRADAY_MAX_POSITIONS", "2"))
 
+    # Filter out assets not listed on this Hyperliquid environment
+    available = set(info.all_mids().keys())
+    signals = {t: s for t, s in signals.items() if HL_SYMBOL_MAP[t] in available}
+    skipped = [t for t in ASSETS if t not in signals]
+    if skipped:
+        print(f"Skipping unavailable assets on this env: {skipped}")
+
     trades = decide_trades(signals, open_positions, max_positions)
     print(f"Decided on {len(trades)} intraday trade(s)")
 
