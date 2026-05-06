@@ -509,15 +509,148 @@ if _intraday:
         st.warning(f"Intraday trading paused today: {reason}. Will resume tomorrow.")
 
 
-# ── Walk-Forward Backtests (deferred for faster initial render) ──────────────
+# ── Regime colour map ───────────────────────────────────────────────────────
 
+REGIME_COLORS = {
+    "Bull": "rgba(0,200,80,0.12)",
+    "Bear": "rgba(255,60,60,0.12)",
+    "Chop": "rgba(160,160,160,0.12)",
+}
+
+
+def _add_regime_bands(fig, regimes_s: pd.Series, row: int = 1):
+    """Shade chart background with regime-coloured vertical rectangles."""
+    if regimes_s.dropna().empty:
+        return
+    prev_regime = None
+    band_start = None
+    dates = regimes_s.index
+
+    for i, (dt_idx, regime) in enumerate(regimes_s.items()):
+        if pd.isna(regime):
+            continue
+        if regime != prev_regime:
+            if prev_regime is not None and band_start is not None:
+                fig.add_vrect(
+                    x0=band_start, x1=dt_idx,
+                    fillcolor=REGIME_COLORS.get(prev_regime, "rgba(0,0,0,0)"),
+                    layer="below", line_width=0, row=row, col=1,
+                )
+            band_start = dt_idx
+            prev_regime = regime
+
+    # Close the last band
+    if prev_regime is not None and band_start is not None:
+        fig.add_vrect(
+            x0=band_start, x1=dates[-1],
+            fillcolor=REGIME_COLORS.get(prev_regime, "rgba(0,0,0,0)"),
+            layer="below", line_width=0, row=row, col=1,
+        )
+
+
+# ── Main chart: Price + BW Filter + Regime Bands (FAST — always shown) ─────
+
+st.markdown("---")
+st.markdown("### Price & Butterworth Filter with HMM Regimes")
+
+_chart_fig = make_subplots(
+    rows=2, cols=1, shared_xaxes=True,
+    vertical_spacing=0.06,
+    row_heights=[0.65, 0.35],
+    subplot_titles=("Price & 2-Pole Butterworth Filter", "2-Pole Oscillator"),
+)
+_chart_fig.add_trace(
+    go.Candlestick(
+        x=df.index, open=df["Open"], high=df["High"],
+        low=df["Low"], close=df["Close"],
+        name="Price",
+        increasing_line_color="#3fb950",
+        decreasing_line_color="#f85149",
+    ),
+    row=1, col=1,
+)
+_chart_fig.add_trace(
+    go.Scatter(
+        x=df.index, y=df["BW_Filter"],
+        mode="lines", name="BW Filter",
+        line=dict(color="#58a6ff", width=2),
+    ),
+    row=1, col=1,
+)
+_add_regime_bands(_chart_fig, regimes, row=1)
+
+_osc = df["TwoPole_Osc"]
+_chart_fig.add_trace(
+    go.Scatter(
+        x=_osc.index, y=_osc.values,
+        mode="lines", name="2-Pole Oscillator",
+        line=dict(color="#d2a8ff", width=1.5),
+    ),
+    row=2, col=1,
+)
+_chart_fig.add_hline(y=0, line_dash="dot", line_color="#484f58", row=2, col=1)
+_add_regime_bands(_chart_fig, regimes, row=2)
+_chart_fig.update_layout(
+    template="plotly_dark",
+    paper_bgcolor="#0e1117",
+    plot_bgcolor="#0e1117",
+    height=800,
+    margin=dict(l=60, r=30, t=50, b=40),
+    legend=dict(orientation="h", y=1.02, x=0.5, xanchor="center"),
+    xaxis_rangeslider_visible=False,
+    font=dict(family="JetBrains Mono, monospace", size=12),
+)
+st.plotly_chart(_chart_fig, width="stretch")
+
+
+# ── Regime Distribution (FAST — always shown) ───────────────────────────────
+
+st.markdown("### Regime Distribution")
+if not regimes.dropna().empty:
+    _regime_counts = regimes.dropna().value_counts()
+    _pie_fig = go.Figure(
+        go.Pie(
+            labels=_regime_counts.index,
+            values=_regime_counts.values,
+            marker=dict(colors=["#3fb950", "#f85149", "#8b949e"]),
+            hole=0.45,
+            textinfo="label+percent",
+            textfont=dict(size=14),
+        )
+    )
+    _pie_fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="#0e1117",
+        plot_bgcolor="#0e1117",
+        height=350,
+        margin=dict(l=20, r=20, t=20, b=20),
+        font=dict(family="JetBrains Mono, monospace", size=12),
+        showlegend=False,
+    )
+    st.plotly_chart(_pie_fig, width="stretch")
+
+
+# ── Backtest gate: opt-in for the slow walk-forward analysis ────────────────
+
+st.markdown("---")
+_show_backtest = st.checkbox(
+    "Show Walk-Forward Backtest Analysis (slow — 30-60 seconds first time)",
+    value=False,
+    help="Runs the full historical walk-forward backtest. The live trading "
+         "data above stays current regardless of this setting.",
+)
+
+if not _show_backtest:
+    st.info("Backtest analysis is hidden by default for faster loading. "
+            "Tick the box above to run the full walk-forward analysis.")
+    st.stop()
+
+# Heavy backtest computation — only reached when checkbox is checked
 wf_std = run_backtest(ticker, False, 1.0,
                       _df=df, _regimes=regimes, _bull_probs=bull_probs, _bear_probs=bear_probs)
 wf_agg = run_backtest(ticker, True, bull_leverage,
                       _df=df, _regimes=regimes, _bull_probs=bull_probs, _bear_probs=bear_probs)
 wf = wf_agg if aggressive else wf_std
-
-# ── Metric Cards ─────────────────────────────────────────────────────────────
 
 st.markdown(f"### Walk-Forward OOS Performance  —  {mode_label} Mode")
 
@@ -571,115 +704,6 @@ with c5:
         </div>""",
         unsafe_allow_html=True,
     )
-
-
-# ── Regime colour map ───────────────────────────────────────────────────────
-
-REGIME_COLORS = {
-    "Bull": "rgba(0,200,80,0.12)",
-    "Bear": "rgba(255,60,60,0.12)",
-    "Chop": "rgba(160,160,160,0.12)",
-}
-
-
-def _add_regime_bands(fig, regimes_s: pd.Series, row: int = 1):
-    """Shade chart background with regime-coloured vertical rectangles."""
-    if regimes_s.dropna().empty:
-        return
-    prev_regime = None
-    band_start = None
-    dates = regimes_s.index
-
-    for i, (dt_idx, regime) in enumerate(regimes_s.items()):
-        if pd.isna(regime):
-            continue
-        if regime != prev_regime:
-            if prev_regime is not None and band_start is not None:
-                fig.add_vrect(
-                    x0=band_start, x1=dt_idx,
-                    fillcolor=REGIME_COLORS.get(prev_regime, "rgba(0,0,0,0)"),
-                    layer="below", line_width=0, row=row, col=1,
-                )
-            band_start = dt_idx
-            prev_regime = regime
-
-    # Close the last band
-    if prev_regime is not None and band_start is not None:
-        fig.add_vrect(
-            x0=band_start, x1=dates[-1],
-            fillcolor=REGIME_COLORS.get(prev_regime, "rgba(0,0,0,0)"),
-            layer="below", line_width=0, row=row, col=1,
-        )
-
-
-# ── Main chart: Price + BW Filter + Regime Bands ────────────────────────────
-
-st.markdown("---")
-st.markdown("### Price & Butterworth Filter with HMM Regimes")
-
-fig = make_subplots(
-    rows=2, cols=1, shared_xaxes=True,
-    vertical_spacing=0.06,
-    row_heights=[0.65, 0.35],
-    subplot_titles=("Price & 2-Pole Butterworth Filter", "2-Pole Oscillator"),
-)
-
-# Price candlestick
-fig.add_trace(
-    go.Candlestick(
-        x=df.index, open=df["Open"], high=df["High"],
-        low=df["Low"], close=df["Close"],
-        name="Price",
-        increasing_line_color="#3fb950",
-        decreasing_line_color="#f85149",
-    ),
-    row=1, col=1,
-)
-
-# Butterworth filter line
-fig.add_trace(
-    go.Scatter(
-        x=df.index, y=df["BW_Filter"],
-        mode="lines", name="BW Filter",
-        line=dict(color="#58a6ff", width=2),
-    ),
-    row=1, col=1,
-)
-
-# Regime background bands on price chart
-_add_regime_bands(fig, regimes, row=1)
-
-# ── Sub-chart: 2-Pole Oscillator ────────────────────────────────────────────
-
-osc = df["TwoPole_Osc"]
-fig.add_trace(
-    go.Scatter(
-        x=osc.index, y=osc.values,
-        mode="lines", name="2-Pole Oscillator",
-        line=dict(color="#d2a8ff", width=1.5),
-    ),
-    row=2, col=1,
-)
-
-# Zero line
-fig.add_hline(y=0, line_dash="dot", line_color="#484f58", row=2, col=1)
-
-# Regime bands on oscillator chart too
-_add_regime_bands(fig, regimes, row=2)
-
-# Layout
-fig.update_layout(
-    template="plotly_dark",
-    paper_bgcolor="#0e1117",
-    plot_bgcolor="#0e1117",
-    height=800,
-    margin=dict(l=60, r=30, t=50, b=40),
-    legend=dict(orientation="h", y=1.02, x=0.5, xanchor="center"),
-    xaxis_rangeslider_visible=False,
-    font=dict(family="JetBrains Mono, monospace", size=12),
-)
-
-st.plotly_chart(fig, width="stretch")
 
 
 # ── OOS Equity Curve — overlaid comparison ──────────────────────────────────
@@ -812,34 +836,6 @@ with cmp_right:
         </div>""",
         unsafe_allow_html=True,
     )
-
-
-# ── Regime Distribution ─────────────────────────────────────────────────────
-
-st.markdown("### Regime Distribution")
-
-if not regimes.dropna().empty:
-    regime_counts = regimes.dropna().value_counts()
-    pie_fig = go.Figure(
-        go.Pie(
-            labels=regime_counts.index,
-            values=regime_counts.values,
-            marker=dict(colors=["#3fb950", "#f85149", "#8b949e"]),
-            hole=0.45,
-            textinfo="label+percent",
-            textfont=dict(size=14),
-        )
-    )
-    pie_fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="#0e1117",
-        plot_bgcolor="#0e1117",
-        height=350,
-        margin=dict(l=20, r=20, t=20, b=20),
-        font=dict(family="JetBrains Mono, monospace", size=12),
-        showlegend=False,
-    )
-    st.plotly_chart(pie_fig, width="stretch")
 
 
 # ── Walk-Forward Fold Details ────────────────────────────────────────────────

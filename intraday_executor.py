@@ -270,6 +270,13 @@ def main():
 
     # Ownership tracking: only manage positions this bot opened
     owned_coins = set(state.get("owned_coins", []))
+
+    # Reconcile: drop owned coins that no longer have a position on the exchange
+    stale_owned = owned_coins - set(open_positions.keys())
+    if stale_owned:
+        print(f"Dropping stale owned coins (no position on exchange): {stale_owned}")
+        owned_coins -= stale_owned
+
     managed_positions = {c: p for c, p in open_positions.items() if c in owned_coins}
 
     trades = decide_trades(signals, managed_positions, max_positions)
