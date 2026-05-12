@@ -442,25 +442,25 @@ def _send_email(results: list[dict], status_summary: str):
 
     rows = ""
     for r in results:
-        status_color = "#3fb950" if r.get("status") == "filled" else "#f85149"
+        status_color = "#1f883d" if r.get("status") == "filled" else "#cf222e"
         fill_px = f"${r.get('fill_price', 0):,.2f}" if r.get("status") == "filled" else "—"
         fill_sz = f"{r.get('fill_size', 0):.6g}" if r.get("status") == "filled" else "—"
         rows += f"""
         <tr>
-            <td style="padding:8px;border-bottom:1px solid #30363d;">{r['ticker']}</td>
-            <td style="padding:8px;border-bottom:1px solid #30363d;">{r['action']}</td>
-            <td style="padding:8px;border-bottom:1px solid #30363d;color:{status_color};font-weight:bold;">{r.get('status', '?').upper()}</td>
-            <td style="padding:8px;border-bottom:1px solid #30363d;">{fill_sz}</td>
-            <td style="padding:8px;border-bottom:1px solid #30363d;">{fill_px}</td>
-            <td style="padding:8px;border-bottom:1px solid #30363d;">{r.get('reason', '')}</td>
+            <td style="padding:10px;border-bottom:1px solid #e1e4e8;color:#1a1a1a;">{r['ticker']}</td>
+            <td style="padding:10px;border-bottom:1px solid #e1e4e8;color:#1a1a1a;">{r['action']}</td>
+            <td style="padding:10px;border-bottom:1px solid #e1e4e8;color:{status_color};font-weight:bold;">{r.get('status', '?').upper()}</td>
+            <td style="padding:10px;border-bottom:1px solid #e1e4e8;color:#1a1a1a;">{fill_sz}</td>
+            <td style="padding:10px;border-bottom:1px solid #e1e4e8;color:#1a1a1a;">{fill_px}</td>
+            <td style="padding:10px;border-bottom:1px solid #e1e4e8;color:#1a1a1a;">{r.get('reason', '')}</td>
         </tr>"""
 
     html = f"""
-    <div style="font-family:monospace;background:#0e1117;color:#c9d1d9;padding:20px;border-radius:12px;">
-        <h2 style="color:#58a6ff;">Crypto Y'all Trade Execution</h2>
-        <p>{dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</p>
-        <p><strong>Status:</strong> {status_summary}</p>
-        {f'<table style="width:100%;border-collapse:collapse;margin-top:16px;"><tr style="color:#8b949e;"><th style="padding:8px;text-align:left;">Asset</th><th style="padding:8px;text-align:left;">Action</th><th style="padding:8px;text-align:left;">Status</th><th style="padding:8px;text-align:left;">Size</th><th style="padding:8px;text-align:left;">Fill Price</th><th style="padding:8px;text-align:left;">Reason</th></tr>{rows}</table>' if results else '<p>No trades executed this cycle.</p>'}
+    <div style="font-family:Arial,Helvetica,sans-serif;background:#ffffff;color:#1a1a1a;padding:24px;border:1px solid #e1e4e8;border-radius:8px;max-width:760px;">
+        <h2 style="color:#0969da;margin:0 0 8px 0;">Crypto Y'all Trade Execution</h2>
+        <p style="color:#57606a;margin:0 0 8px 0;">{dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</p>
+        <p style="color:#1a1a1a;margin:0 0 16px 0;"><strong>Status:</strong> {status_summary}</p>
+        {f'<table style="width:100%;border-collapse:collapse;margin-top:16px;background:#ffffff;"><tr style="background:#f6f8fa;color:#57606a;text-transform:uppercase;font-size:0.75em;letter-spacing:0.5px;"><th style="padding:10px;text-align:left;">Asset</th><th style="padding:10px;text-align:left;">Action</th><th style="padding:10px;text-align:left;">Status</th><th style="padding:10px;text-align:left;">Size</th><th style="padding:10px;text-align:left;">Fill Price</th><th style="padding:10px;text-align:left;">Reason</th></tr>{rows}</table>' if results else '<p style="color:#1a1a1a;">No trades executed this cycle.</p>'}
     </div>
     """
 

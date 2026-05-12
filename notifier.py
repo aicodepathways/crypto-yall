@@ -170,30 +170,30 @@ def send_email(transitions: list[dict]):
         mode_label = "Aggressive" if t["mode"] == "aggressive" else "Standard"
         rows += f"""
         <tr>
-            <td style="padding:8px;border-bottom:1px solid #30363d;">{t['name']}</td>
-            <td style="padding:8px;border-bottom:1px solid #30363d;font-weight:bold;color:#3fb950;">{t['action']}</td>
-            <td style="padding:8px;border-bottom:1px solid #30363d;">{mode_label}</td>
-            <td style="padding:8px;border-bottom:1px solid #30363d;">{t['regime']} ({t['bull_conf']:.0%})</td>
-            <td style="padding:8px;border-bottom:1px solid #30363d;">${t['price']:,.2f}</td>
-            <td style="padding:8px;border-bottom:1px solid #30363d;">{t['prev_action'] or 'N/A'}</td>
+            <td style="padding:10px;border-bottom:1px solid #e1e4e8;color:#1a1a1a;">{t['name']}</td>
+            <td style="padding:10px;border-bottom:1px solid #e1e4e8;font-weight:bold;color:#1f883d;">{t['action']}</td>
+            <td style="padding:10px;border-bottom:1px solid #e1e4e8;color:#1a1a1a;">{mode_label}</td>
+            <td style="padding:10px;border-bottom:1px solid #e1e4e8;color:#1a1a1a;">{t['regime']} ({t['bull_conf']:.0%})</td>
+            <td style="padding:10px;border-bottom:1px solid #e1e4e8;color:#1a1a1a;">${t['price']:,.2f}</td>
+            <td style="padding:10px;border-bottom:1px solid #e1e4e8;color:#1a1a1a;">{t['prev_action'] or 'N/A'}</td>
         </tr>"""
 
     html = f"""
-    <div style="font-family:monospace;background:#0e1117;color:#c9d1d9;padding:20px;border-radius:12px;">
-        <h2 style="color:#58a6ff;">Crypto Y'all Signal Alert</h2>
-        <p>{dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</p>
-        <table style="width:100%;border-collapse:collapse;margin-top:16px;">
-            <tr style="color:#8b949e;text-transform:uppercase;font-size:0.8em;">
-                <th style="padding:8px;text-align:left;">Asset</th>
-                <th style="padding:8px;text-align:left;">Signal</th>
-                <th style="padding:8px;text-align:left;">Mode</th>
-                <th style="padding:8px;text-align:left;">Regime</th>
-                <th style="padding:8px;text-align:left;">Price</th>
-                <th style="padding:8px;text-align:left;">Previous</th>
+    <div style="font-family:Arial,Helvetica,sans-serif;background:#ffffff;color:#1a1a1a;padding:24px;border:1px solid #e1e4e8;border-radius:8px;max-width:760px;">
+        <h2 style="color:#0969da;margin:0 0 8px 0;">Crypto Y'all Signal Alert</h2>
+        <p style="color:#57606a;margin:0 0 16px 0;">{dt.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</p>
+        <table style="width:100%;border-collapse:collapse;margin-top:16px;background:#ffffff;">
+            <tr style="background:#f6f8fa;color:#57606a;text-transform:uppercase;font-size:0.75em;letter-spacing:0.5px;">
+                <th style="padding:10px;text-align:left;">Asset</th>
+                <th style="padding:10px;text-align:left;">Signal</th>
+                <th style="padding:10px;text-align:left;">Mode</th>
+                <th style="padding:10px;text-align:left;">Regime</th>
+                <th style="padding:10px;text-align:left;">Price</th>
+                <th style="padding:10px;text-align:left;">Previous</th>
             </tr>
             {rows}
         </table>
-        <p style="color:#484f58;margin-top:20px;font-size:0.85em;">
+        <p style="color:#8b949e;margin-top:24px;font-size:0.85em;">
             Crypto Y'all — Strictly causal — No look-ahead bias
         </p>
     </div>
